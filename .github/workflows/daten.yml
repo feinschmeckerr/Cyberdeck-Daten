@@ -1,0 +1,154 @@
+# Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, 3D-Gebäude): je Land ein Lauf
+# mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
+# Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
+# von der Geofabrik. Monatlich und von Hand (dann auf Wunsch nur einzelne Länder).
+name: Daten
+
+on:
+  schedule:
+    - cron: "17 2 3 * *"
+  workflow_dispatch:
+    inputs:
+      laender:
+        description: "Länder (Kennungen wie bei der Geofabrik, mit Komma) oder „alle“"
+        default: alle
+      ref:
+        description: "Zweig von Cyberdeck mit den Erzeugern"
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daten
+  cancel-in-progress: false
+
+jobs:
+  anlegen:
+    name: Release anlegen
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      laender: ${{ steps.laender.outputs.liste }}
+    steps:
+      - id: tag
+        run: echo "tag=daten-$(date -u +%Y-%m-%d)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+      - id: laender
+        env:
+          WAHL: ${{ inputs.laender || 'alle' }}
+        run: |
+          alle="baden-wuerttemberg bayern berlin brandenburg bremen hamburg hessen mecklenburg-vorpommern niedersachsen
+            nordrhein-westfalen rheinland-pfalz saarland sachsen sachsen-anhalt schleswig-holstein thueringen"
+          if [ "$WAHL" = alle ]; then wahl=$alle; else wahl=$(echo "$WAHL" | tr ',' ' '); fi
+          for land in $wahl; do
+            echo " $alle " | tr -s ' \n' ' ' | grep -q " $land " || { echo "::error::Unbekanntes Land: $land"; exit 1; }
+          done
+          echo "liste=$(printf '%s\n' $wahl | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+      - name: Release (Vorabfassung, bis alle Länder fertig sind)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" -R "${{ github.repository }}" --prerelease \
+            --title "Kartendaten ${{ steps.tag.outputs.tag }}" \
+            --notes "Details der Bundesländer für die PiFlux-App. © OpenStreetMap-Mitwirkende, ODbL 1.0 – über Geofabrik."
+
+  land:
+    name: ${{ matrix.land }}
+    needs: anlegen
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        land: ${{ fromJSON(needs.anlegen.outputs.laender) }}
+    env:
+      LANG: C.UTF-8
+      LAND: ${{ matrix.land }}
+      GEOFABRIK: https://download.geofabrik.de/europe/germany
+    steps:
+      - name: Debian-Pakete (wie am Pi)
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl git gh python3 python3-numpy \
+            python3-pyosmium time > /dev/null
+      - uses: actions/checkout@v5
+        with:
+          path: daten
+      - uses: actions/checkout@v5
+        with:
+          repository: feinschmeckerr/Cyberdeck
+          ref: ${{ inputs.ref || 'main' }}
+          token: ${{ secrets.CYBERDECK_LESEN }}
+          path: piflux
+      - name: Rohdaten und Grundkarte laden
+        working-directory: piflux
+        run: |
+          mkdir -p kartendaten/osm kartendaten/laender
+          holen() { curl -fL --retry 5 --retry-delay 20 -sS -o "$2" "$1"; }
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf" "kartendaten/osm/$LAND-latest.osm.pbf"
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf.md5" "kartendaten/osm/$LAND-latest.osm.pbf.md5"
+          ( cd kartendaten/osm && md5sum -c --quiet "$LAND-latest.osm.pbf.md5" )
+          # Namen für den Suchindex kommen aus den Kacheln; Berlin steckt in der Grundkarte Brandenburg (laender.py)
+          karte=$([ "$LAND" = berlin ] && echo brandenburg || echo "$LAND")
+          holen "$GEOFABRIK/$karte-shortbread-1.0.mbtiles" "kartendaten/laender/$karte-shortbread-1.0.mbtiles"
+          ls -la kartendaten/osm kartendaten/laender
+          df -h .
+      - name: Suchindex und Tippfehler-Wörter
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 tools/erzeugen/suchindex-erzeugen.py 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+          python3 tools/erzeugen/suchwoerter-erzeugen.py
+      - name: Straßennetz
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 tools/erzeugen/strassennetz-erzeugen.py 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Merkmale
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 tools/erzeugen/merkmale-erzeugen.py 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: 3D-Gebäude
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 tools/erzeugen/gebaeude-erzeugen.py --ohne-lod2 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Packen und hochladen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ergebnis
+          for teil in suchindex.sqlite suchwoerter.sqlite merkmale.sqlite gebaeude.mbtiles strassennetz; do
+            mv "piflux/kartendaten/$teil" ergebnis/
+          done
+          rm -rf piflux/kartendaten
+          python3 daten/werkzeuge/packen.py "$LAND" ergebnis aus
+          rm -rf ergebnis
+          gh release upload "${{ needs.anlegen.outputs.tag }}" -R "${{ github.repository }}" --clobber aus/*
+
+  verzeichnis:
+    name: Verzeichnis und Freigabe
+    needs: [anlegen, land]
+    if: ${{ !cancelled() && needs.anlegen.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: pakete.json aus den Manifesten der Länder
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.anlegen.outputs.tag }}
+        run: |
+          mkdir manifeste
+          gh release download "$TAG" -R "${{ github.repository }}" -D manifeste --pattern '*.json'
+          rm -f manifeste/pakete.json
+          python3 werkzeuge/verzeichnis.py manifeste "$TAG" > pakete.json
+          python3 -c 'import json; d=json.load(open("pakete.json")); [print(l["land"], round(l["gz_groesse"]/1e6), "MB") for l in d["laender"]]'
+          gh release upload "$TAG" -R "${{ github.repository }}" --clobber pakete.json
+      - name: Freigeben (nur wenn alle Länder fertig sind)
+        if: needs.land.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ needs.anlegen.outputs.tag }}" -R "${{ github.repository }}" --prerelease=false --latest
