@@ -1,10 +1,14 @@
 # Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, 3D-Gebäude): je Land ein Lauf
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
-# von der Geofabrik. Monatlich und von Hand (dann auf Wunsch nur einzelne Länder).
+# von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
+# (eine Zeile: Länder mit Komma oder „alle“) – so startet ein Lauf auch ohne Knopf, mit einem Push.
 name: Daten
 
 on:
+  push:
+    branches: [main]
+    paths: [auftrag.txt]
   schedule:
     - cron: "17 2 3 * *"
   workflow_dispatch:
@@ -31,12 +35,15 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       laender: ${{ steps.laender.outputs.liste }}
     steps:
+      - uses: actions/checkout@v5
+        if: github.event_name == 'push'
       - id: tag
         run: echo "tag=daten-$(date -u +%Y-%m-%d)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
       - id: laender
         env:
           WAHL: ${{ inputs.laender || 'alle' }}
         run: |
+          if [ "${{ github.event_name }}" = push ]; then WAHL=$(grep -v '^#' auftrag.txt | head -1 | tr -d ' \r'); fi
           alle="baden-wuerttemberg bayern berlin brandenburg bremen hamburg hessen mecklenburg-vorpommern niedersachsen
             nordrhein-westfalen rheinland-pfalz saarland sachsen sachsen-anhalt schleswig-holstein thueringen"
           if [ "$WAHL" = alle ]; then wahl=$alle; else wahl=$(echo "$WAHL" | tr ',' ' '); fi
