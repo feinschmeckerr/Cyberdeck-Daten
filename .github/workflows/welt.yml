@@ -1,0 +1,76 @@
+# Weltkarte für die PiFlux-App, als zwei Pakete im aktuellen Release (wie die Länder, gleiche Manifeste):
+#   welt     – Welt-Übersicht aus Natural Earth (gemeinfrei), Zoom 0–7, ~40 MB (tools/erzeugen/welt-erzeugen.py)
+#   weltosm  – Welt-Grundkarte aus OpenStreetMap über VersaTiles, Zoom 0–8, ~330 MB (tools/erzeugen/welt-osm.mjs)
+# Die Erzeuger kommen aus dem privaten Repo Cyberdeck (Secret CYBERDECK_LESEN). Läuft nach jedem Daten-Lauf (der ein
+# neues Release anlegt), von Hand und bei einer Änderung an dieser Datei. Danach wird pakete.json neu geschrieben.
+name: Welt
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/welt.yml]
+  workflow_run:
+    workflows: [Daten]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Zweig von Cyberdeck mit den Erzeugern"
+        default: main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: welt
+  cancel-in-progress: false
+
+jobs:
+  welt:
+    name: Weltkarte
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: daten
+      - uses: actions/checkout@v5
+        with:
+          repository: feinschmeckerr/Cyberdeck
+          ref: ${{ inputs.ref || 'main' }}
+          token: ${{ secrets.CYBERDECK_LESEN }}
+          path: piflux
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Werkzeuge
+        run: pip install --quiet numpy
+      - name: Welt-Übersicht (Natural Earth, Zoom 0–7)
+        working-directory: piflux
+        run: python3 tools/erzeugen/welt-erzeugen.py
+      - name: Welt-Grundkarte (OpenStreetMap, Zoom 0–8)
+        working-directory: piflux
+        run: node tools/erzeugen/welt-osm.mjs 8
+      - name: Packen und ins aktuelle Release
+        run: |
+          tag=$(gh release view -R "${{ github.repository }}" --json tagName -q .tagName)
+          echo "Release: $tag"
+          mkdir -p ergebnis/welt ergebnis/weltosm
+          mv piflux/kartendaten/welt.mbtiles ergebnis/welt/
+          mv piflux/kartendaten/welt-osm.mbtiles ergebnis/weltosm/
+          rm -rf piflux/kartendaten
+          python3 daten/werkzeuge/packen.py welt ergebnis/welt aus
+          python3 daten/werkzeuge/packen.py weltosm ergebnis/weltosm aus
+          gh release upload "$tag" -R "${{ github.repository }}" --clobber aus/*
+          # Verzeichnis neu: Länder und Welt aus allen Manifesten des Releases
+          mkdir manifeste
+          gh release download "$tag" -R "${{ github.repository }}" -D manifeste --pattern '*.json'
+          rm -f manifeste/pakete.json
+          python3 daten/werkzeuge/verzeichnis.py manifeste "$tag" > pakete.json
+          python3 -c 'import json; d=json.load(open("pakete.json")); [print(l["land"], round(l["gz_groesse"]/1e6), "MB") for l in d["laender"]]'
+          gh release upload "$tag" -R "${{ github.repository }}" --clobber pakete.json

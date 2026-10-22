@@ -9,7 +9,8 @@ import time
 from pathlib import Path
 
 QUELLEN = ("© OpenStreetMap-Mitwirkende, ODbL 1.0 (https://www.openstreetmap.org/copyright), "
-           "über Geofabrik (https://download.geofabrik.de)")
+           "über Geofabrik (https://download.geofabrik.de) und VersaTiles (https://versatiles.org); "
+           "Welt-Übersicht: Natural Earth (gemeinfrei)")
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
