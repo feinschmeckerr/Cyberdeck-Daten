@@ -1,0 +1,69 @@
+# Fahrplan Berlin/Brandenburg für die PiFlux-App, als Paket „oepnv“ im aktuellen Release (wie die Weltkarte):
+#   oepnv – VBB-GTFS (© VBB Verkehrsverbund Berlin-Brandenburg GmbH, CC BY 4.0) als oepnv.sqlite (~90 MB, gepackt
+#           ~30 MB): Haltestellen, Linien, Fahrten, Halte, Linienformen – tools/erzeugen/oepnv-erzeugen.py
+# Der Fahrplan gilt einige Wochen: läuft jeden Montag, nach jedem Daten-Lauf (der ein neues Release anlegt), von Hand
+# und bei einer Änderung an dieser Datei. Der Erzeuger kommt aus dem privaten Repo Cyberdeck (Secret CYBERDECK_LESEN).
+name: Fahrplan
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/oepnv.yml]
+  schedule:
+    - cron: "23 3 * * 1"
+  workflow_run:
+    workflows: [Daten]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Zweig von Cyberdeck mit dem Erzeuger"
+        default: main
+
+permissions:
+  contents: write
+
+# wie Welt: beide schreiben pakete.json neu – nacheinander
+concurrency:
+  group: welt
+  cancel-in-progress: false
+
+jobs:
+  fahrplan:
+    name: Fahrplan VBB
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: daten
+      - uses: actions/checkout@v5
+        with:
+          repository: feinschmeckerr/Cyberdeck
+          ref: ${{ inputs.ref || 'main' }}
+          token: ${{ secrets.CYBERDECK_LESEN }}
+          path: piflux
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: VBB-Fahrplan laden und umwandeln
+        working-directory: piflux
+        run: python3 tools/erzeugen/oepnv-erzeugen.py --neu
+      - name: Packen und ins aktuelle Release
+        run: |
+          tag=$(gh release view -R "${{ github.repository }}" --json tagName -q .tagName)
+          echo "Release: $tag"
+          mkdir -p ergebnis/oepnv
+          mv piflux/kartendaten/oepnv.sqlite ergebnis/oepnv/
+          rm -rf piflux/kartendaten
+          python3 daten/werkzeuge/packen.py oepnv ergebnis/oepnv aus
+          gh release upload "$tag" -R "${{ github.repository }}" --clobber aus/*
+          # Verzeichnis neu: Länder, Welt und Fahrplan aus allen Manifesten des Releases
+          mkdir manifeste
+          gh release download "$tag" -R "${{ github.repository }}" -D manifeste --pattern '*.json'
+          rm -f manifeste/pakete.json
+          python3 daten/werkzeuge/verzeichnis.py manifeste "$tag" > pakete.json
+          python3 -c 'import json; d=json.load(open("pakete.json")); [print(l["land"], round(l["gz_groesse"]/1e6), "MB") for l in d["laender"]]'
+          gh release upload "$tag" -R "${{ github.repository }}" --clobber pakete.json
