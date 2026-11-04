@@ -2,4 +2,4 @@
 alle
 # Zweig von Cyberdeck mit den Erzeugern (auch für den monatlichen Lauf)
 zweig=ios
-# 04.11.: Fußnetz quert Wohnstraßen (kanten_fuss.u1)
+# 04.11.: Fußnetz quert Wohnstraßen (kanten_fuss.u1); fester Kantenschlüssel (kanten_osm.u4), park_ride in den Merkmalen
