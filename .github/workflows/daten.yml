@@ -2,7 +2,9 @@
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
 # von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
-# (eine Zeile: Länder mit Komma oder „alle“) – so startet ein Lauf auch ohne Knopf, mit einem Push.
+# (eine Zeile: Länder mit Komma oder „alle“) – so startet ein Lauf auch ohne Knopf, mit einem Push. Eine Zeile
+# „zweig=…“ in auftrag.txt legt den Zweig von Cyberdeck mit den Erzeugern fest (für Push und den monatlichen Lauf;
+# von Hand gilt die Eingabe „ref“), ohne sie main.
 name: Daten
 
 on:
@@ -17,8 +19,8 @@ on:
         description: "Länder (Kennungen wie bei der Geofabrik, mit Komma) oder „alle“"
         default: alle
       ref:
-        description: "Zweig von Cyberdeck mit den Erzeugern"
-        default: main
+        description: "Zweig von Cyberdeck mit den Erzeugern (leer: zweig= aus auftrag.txt, sonst main)"
+        default: ""
 
 permissions:
   contents: write
@@ -34,16 +36,22 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       laender: ${{ steps.laender.outputs.liste }}
+      ref: ${{ steps.zweig.outputs.ref }}
     steps:
       - uses: actions/checkout@v5
-        if: github.event_name == 'push'
+      - id: zweig
+        env:
+          EINGABE: ${{ inputs.ref }}
+        run: |
+          zweig=$(grep -v '^#' auftrag.txt | grep '^zweig=' | head -1 | cut -d= -f2 | tr -d ' \r')
+          echo "ref=${EINGABE:-${zweig:-main}}" >> "$GITHUB_OUTPUT"
       - id: tag
         run: echo "tag=daten-$(date -u +%Y-%m-%d)-${{ github.run_number }}" >> "$GITHUB_OUTPUT"
       - id: laender
         env:
           WAHL: ${{ inputs.laender || 'alle' }}
         run: |
-          if [ "${{ github.event_name }}" = push ]; then WAHL=$(grep -v '^#' auftrag.txt | head -1 | tr -d ' \r'); fi
+          if [ "${{ github.event_name }}" = push ]; then WAHL=$(grep -v '^#' auftrag.txt | grep -v '^zweig=' | head -1 | tr -d ' \r'); fi
           alle="baden-wuerttemberg bayern berlin brandenburg bremen hamburg hessen mecklenburg-vorpommern niedersachsen
             nordrhein-westfalen rheinland-pfalz saarland sachsen sachsen-anhalt schleswig-holstein thueringen"
           if [ "$WAHL" = alle ]; then wahl=$alle; else wahl=$(echo "$WAHL" | tr ',' ' '); fi
@@ -86,7 +94,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: feinschmeckerr/Cyberdeck
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ needs.anlegen.outputs.ref }}
           token: ${{ secrets.CYBERDECK_LESEN }}
           path: piflux
       - name: Rohdaten und Grundkarte laden

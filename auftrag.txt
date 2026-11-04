@@ -1,2 +1,5 @@
 # Länder für den nächsten Lauf (Kennungen mit Komma oder „alle“) – eine Änderung hier startet ihn
 alle
+# Zweig von Cyberdeck mit den Erzeugern (auch für den monatlichen Lauf)
+zweig=ios
+# 04.11.: Fußnetz quert Wohnstraßen (kanten_fuss.u1)
