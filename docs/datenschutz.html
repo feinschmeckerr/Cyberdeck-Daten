@@ -9,7 +9,7 @@
 <body>
 <main>
 <h1>Datenschutzerklärung für Navoq</h1>
-<p class="stand">Stand: 29. Oktober 2026</p>
+<p class="stand">Stand: 4. November 2026</p>
 
 <p>Navoq speichert deine Daten auf deinem iPhone. Es gibt kein Konto, keine Werbung und keine Analyse- oder
 Tracking-Dienste. Der Anbieter der App erhält keine Daten von dir.</p>
@@ -29,13 +29,30 @@ iCloud-Fotos, synchronisiert Apple sie nach deinen iCloud-Einstellungen.</li>
 <p>Unter Einstellungen › „Alle Daten löschen“ entfernst du sie in der App; löschst du die App, löscht iOS sie
 ebenfalls. Fotos in deiner Mediathek und Werte in Health bleiben dabei erhalten.</p>
 
-<h2>3. Apple Health</h2>
+<h2>3. Kontakte (optional)</h2>
+<p>Erlaubst du es unter Einstellungen › Orte › „Kontakte in der Suche“, durchsucht Navoq deine Kontakte nach Name,
+Firma und Spitzname und zeigt deren Adressen als Treffer. Du kannst iOS dabei auch nur ausgewählte Kontakte freigeben.
+Den Ort einer Adresse sucht Navoq offline in den geladenen Kartendaten. Kontaktdaten verlassen das iPhone nicht und
+gehen an keinen Dienst aus Abschnitt 6. Ein gewählter Kontakt kann unter „Zuletzt“ stehen. Als Navigationsziel heißt er
+in Fahrten, auf dem Sperrbildschirm und in CarPlay nur „Privates Ziel“. Schaltest du die Funktion aus, entfernt Navoq
+die Kontakte auch aus „Zuletzt“.</p>
+
+<h2>4. Autodaten aus deinem Home Assistant (optional)</h2>
+<p>Wer seinen eigenen Home-Assistant-Server verbindet, gibt dessen Adresse und einen Zugriffstoken ein. Beides bleibt
+im Schlüsselbund des iPhones, und der Token geht nur an diese Adresse, nur über HTTPS. Navoq liest dort nur
+Fahrzeugwerte, die eine vorhandene Integration bereitstellt, zum Beispiel Tank, Reichweite, Schloss, Türen, Parkort und
+Kennzahlen der Fahrten. Diese Werte speichert Navoq nur auf dem Gerät: den letzten Stand mit dem letzten Parkort und die
+Fahrten 365 Tage lang. Die Fahrzeug-Identifizierungsnummer liest Navoq nicht. Navoq sendet keine Befehle und gibt die
+Daten nicht weiter, auch nicht an Kollegen, über Funk, in Exporten oder an KI-Funktionen. Für den Parkort fragt Navoq
+keine Dienste aus Abschnitt 6 ab. Unter Einstellungen › Zugänge lassen sich die Daten jederzeit löschen.</p>
+
+<h2>5. Apple Health</h2>
 <p>Navoq liest – nur wenn du es in Health erlaubst – Werte wie Puls, Ruhepuls, Herzfrequenzvariabilität, Atemfrequenz,
 Blutsauerstoff, Schritte, Schlaf, Blutgruppe, Geburtsdatum, Größe und Gewicht. Navoq schreibt nichts nach Health. Die
 Werte werden nur auf dem iPhone ausgewertet, nicht übertragen, nicht in iCloud gespeichert und nie für Werbung genutzt.
 Welche Werte Navoq lesen darf, legst du in Health fest (Teilen › Apps › Navoq).</p>
 
-<h2>4. Dienste, an die bei Nutzung Daten gehen</h2>
+<h2>6. Dienste, an die bei Nutzung Daten gehen</h2>
 <p>Einige Funktionen laden Inhalte aus dem Netz. Dabei erhält der jeweilige Dienst deine IP-Adresse und die Anfrage,
 bei den folgenden Diensten auch einen Ort oder Kartenausschnitt. Das geschieht nur, wenn du die Funktion nutzt.</p>
 <ul>
@@ -51,36 +68,39 @@ bei den folgenden Diensten auch einen Ort oder Kartenausschnitt. Das geschieht n
 GmbH, Pegelstände (PEGELONLINE), Fahrplan (VBB), Nachrichtenquellen, Satellitenbahnen (CelesTrak) und Kartendaten
 (GitHub, Geofabrik).</p>
 
-<h2>5. Kollegen (Apple iCloud)</h2>
+<h2>7. Kollegen (Apple iCloud)</h2>
 <p>Trittst du einem Team bei und teilst deinen Standort im Dienst, speichert Navoq Name, Status, Position, Richtung,
 Tempo und Zeit in der iCloud-Datenbank von Apple (CloudKit). Die Mitglieder deines Teams sehen diese Angaben, solange
 du im Dienst bist. Dienstende, Pausieren und Austreten löschen deinen Standort aus dem Team.</p>
 
-<h2>6. Meshtastic</h2>
+<h2>8. Meshtastic</h2>
 <p>Verbindest du ein Meshtastic-Funkgerät, sendet Navoq deine Nachrichten und – je nach Einstellung – deine Position
 per Funk. Alle Geräte im selben Kanal können sie empfangen.</p>
 
-<h2>7. Apple-Dienste</h2>
+<h2>9. Apple-Dienste</h2>
 <ul>
 <li>Spracherkennung: Gesprochene Einträge werden auf dem iPhone erkannt; kann das Gerät es nicht, über die
 Spracherkennung von Apple.</li>
 <li>KI-Funktionen laufen auf dem Gerät (Apple Intelligence).</li>
+<li>Apple-Karte: Wählst du die Grundkarte „Apple“ oder das Luftbild von Apple, lädt das iPhone den sichtbaren
+Kartenausschnitt über Apples Kartendienst (MapKit). Apple erhält dabei die Anfrage und deine IP-Adresse. Ohne Netz
+und im Krisenmodus zeigt Navoq die eigene Karte.</li>
 <li>TestFlight und Absturzberichte: Apple stellt dem Anbieter Absturzberichte und dein Feedback bereit, wenn du das in
 iOS bzw. TestFlight erlaubst.</li>
 </ul>
 
-<h2>8. Rechtsgrundlagen</h2>
+<h2>10. Rechtsgrundlagen</h2>
 <p>Die Verarbeitung auf deinem Gerät und die Übermittlung an die genannten Dienste erfolgen, weil du die jeweilige
 Funktion nutzt (Art. 6 Abs. 1 lit. b DSGVO) bzw. mit deiner Einwilligung über die Berechtigungen von iOS (Art. 6 Abs. 1
 lit. a DSGVO). Für Gesundheitsdaten gilt Art. 9 Abs. 2 lit. a DSGVO. Einwilligungen widerrufst du jederzeit in den
 Einstellungen von iOS bzw. in Health.</p>
 
-<h2>9. Dienstliche Nutzung und Daten Dritter</h2>
+<h2>11. Dienstliche Nutzung und Daten Dritter</h2>
 <p>Navoq ist keine Behörden-App. Nutzt du sie dienstlich, brauchst du die Genehmigung deines Dienstherrn. Für Daten
 anderer Personen, die du erfasst – etwa Kennzeichen auf Beweisfotos oder Angaben in der Einsatzdokumentation –, bist du
 bzw. dein Dienstherr verantwortlich.</p>
 
-<h2>10. Deine Rechte</h2>
+<h2>12. Deine Rechte</h2>
 <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und
 Widerspruch sowie das Recht auf Beschwerde bei einer Datenschutz-Aufsichtsbehörde. Da der Anbieter keine Daten von dir
 speichert, wende dich für Daten bei den oben genannten Diensten an diese selbst.</p>
