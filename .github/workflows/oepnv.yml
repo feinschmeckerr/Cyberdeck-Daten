@@ -39,13 +39,22 @@ jobs:
       - uses: actions/checkout@v5
         with:
           path: daten
+      - name: Zweig des Erzeugers
+        # von Hand: die Eingabe; sonst (Woche, nach Daten, Push) „zweig=“ aus auftrag.txt wie bei Daten, sonst main
+        run: |
+          zweig="${{ inputs.ref }}"
+          if [ -z "$zweig" ]; then
+            zweig=$(grep -v '^#' daten/auftrag.txt | grep '^zweig=' | head -1 | cut -d= -f2 | tr -d ' \r' || true)
+          fi
+          echo "ZWEIG=${zweig:-main}" >> "$GITHUB_ENV"
+          echo "Erzeuger aus Zweig ${zweig:-main}"
       - uses: actions/checkout@v5
         with:
           repository: feinschmeckerr/Cyberdeck
-          ref: ${{ inputs.ref || 'main' }}
+          ref: ${{ env.ZWEIG }}
           token: ${{ secrets.CYBERDECK_LESEN }}
           path: piflux
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: VBB-Fahrplan laden und umwandeln
