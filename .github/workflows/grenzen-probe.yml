@@ -1,0 +1,132 @@
+# Probe der Verwaltungsgrenzen (grenzen.sqlite je Land) ohne Release: nur von Hand, für einzelne Länder. Baut die
+# Grenzen mit dem Erzeuger des gewählten Zweigs von Cyberdeck (tools/erzeugen/grenzen-erzeugen.py --land), misst Größe
+# (roh und gepackt) je Vereinfachung und prüft Stichproben (Punkt in Fläche). Lädt nichts hoch und ändert kein Release –
+# die veröffentlichten Pakete bleiben, wie sie sind. Der Name ist nicht „Daten“: Welt und Fahrplan laufen danach nicht.
+name: Grenzen (Probe)
+
+on:
+  workflow_dispatch:
+    inputs:
+      laender:
+        description: "Länder (Kennungen mit Komma)"
+        default: berlin,brandenburg
+      ref:
+        description: "Zweig von Cyberdeck mit dem Erzeuger"
+        default: ios-lage
+      toleranzen:
+        description: "Vereinfachungen in Grad (mit Leerzeichen), die erste wie im Paket"
+        default: "0.00015 0.0001 0.0003"
+
+permissions:
+  contents: read
+
+jobs:
+  wahl:
+    name: Länder
+    runs-on: ubuntu-latest
+    outputs:
+      laender: ${{ steps.laender.outputs.liste }}
+    steps:
+      - id: laender
+        env:
+          WAHL: ${{ inputs.laender }}
+        run: |
+          alle=" baden-wuerttemberg bayern berlin brandenburg bremen hamburg hessen mecklenburg-vorpommern niedersachsen nordrhein-westfalen rheinland-pfalz saarland sachsen sachsen-anhalt schleswig-holstein thueringen "
+          wahl=$(echo "$WAHL" | tr ',' ' ')
+          [ "$wahl" != alle ] || { echo "::error::Die Probe ist für einzelne Länder"; exit 1; }
+          for land in $wahl; do
+            echo "$alle" | grep -q " $land " || { echo "::error::Unbekanntes Land: $land"; exit 1; }
+          done
+          echo "liste=$(printf '%s\n' $wahl | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+
+  land:
+    name: ${{ matrix.land }}
+    needs: wahl
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        land: ${{ fromJSON(needs.wahl.outputs.laender) }}
+    env:
+      LANG: C.UTF-8
+      LAND: ${{ matrix.land }}
+      GEOFABRIK: https://download.geofabrik.de/europe/germany
+    steps:
+      - name: Debian-Pakete (wie im Daten-Lauf)
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl git python3 python3-numpy \
+            python3-pyosmium time > /dev/null
+      - uses: actions/checkout@v5
+        with:
+          path: daten
+      - uses: actions/checkout@v5
+        with:
+          repository: feinschmeckerr/Cyberdeck
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.CYBERDECK_LESEN }}
+          path: piflux
+      - name: Rohdaten und VG250 laden
+        working-directory: piflux
+        run: |
+          mkdir -p kartendaten/osm kartendaten/vg250
+          holen() { curl -fL --retry 5 --retry-delay 20 -sS -o "$2" "$1"; }
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf" "kartendaten/osm/$LAND-latest.osm.pbf"
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf.md5" "kartendaten/osm/$LAND-latest.osm.pbf.md5"
+          ( cd kartendaten/osm && md5sum -c --quiet "$LAND-latest.osm.pbf.md5" )
+          holen https://daten.gdz.bkg.bund.de/produkte/vg/vg250_ebenen_0101/aktuell/vg250_01-01.utm32s.gpkg.ebenen.zip \
+            kartendaten/vg250/vg250.zip || { echo "::warning::VG250 nicht geladen – alle Ebenen aus OSM"; rm -f kartendaten/vg250/vg250.zip; }
+          ls -la kartendaten/osm kartendaten/vg250
+      - name: Grenzen je Vereinfachung
+        working-directory: piflux
+        env:
+          TOLERANZEN: ${{ inputs.toleranzen }}
+        run: |
+          mkdir -p probe
+          for t in $TOLERANZEN; do
+            /usr/bin/time -v python3 tools/erzeugen/grenzen-erzeugen.py --land "$LAND" --ziel "probe/grenzen-$t.sqlite" \
+              --toleranz "$t" 2> zeit.txt || { cat zeit.txt; exit 1; }
+            grep -E "Elapsed|Maximum resident" zeit.txt
+            gzip -6 -k "probe/grenzen-$t.sqlite"
+          done
+          ls -la probe
+      - name: Größen und Stichproben
+        working-directory: piflux
+        run: |
+          python3 - <<'PY'
+          import json, os, sqlite3
+          from pathlib import Path
+          proben = {"berlin": [("Hellersdorf", 52.536, 13.605), ("Marzahn-Hellersdorf", 52.536, 13.605), ("Marzahn", 52.545, 13.545),
+                               ("Spandau", 52.535, 13.200), ("Berlin", 52.52, 13.40)],
+                    "brandenburg": [("Potsdam", 52.40, 13.06), ("Cottbus", 51.76, 14.33), ("Frankfurt", 52.34, 14.55),
+                                    ("Barnim", 52.83, 13.80)]}
+          def im_ring(x, y, ring):
+              drin, j = False, len(ring) - 1
+              for i in range(len(ring)):
+                  (xi, yi), (xj, yj) = ring[i], ring[j]
+                  if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / (yj - yi) + xi:
+                      drin = not drin
+                  j = i
+              return drin
+          for datei in sorted(Path("probe").glob("grenzen-*.sqlite")):
+              db = sqlite3.connect(datei)
+              gz = os.path.getsize(f"{datei}.gz")
+              print(f"== {datei.name}: {datei.stat().st_size / 1e6:.2f} MB, gepackt {gz / 1e6:.2f} MB")
+              for ebene, anzahl, zeichen in db.execute("SELECT ebene, count(*), sum(length(umriss)) FROM grenzen GROUP BY ebene"):
+                  print(f"   Ebene {ebene}: {anzahl} Flächen, {zeichen / 1e6:.2f} MB Umrisse")
+              print("   Lizenz:", dict(db.execute("SELECT schluessel, wert FROM lizenz")))
+              for name, b, l in proben.get(os.environ["LAND"], []):
+                  treffer = []
+                  for gid, voll, ebene, umriss in db.execute(
+                          "SELECT g.id, g.name, g.ebene, g.umriss FROM namen n JOIN grenzen g USING (id) WHERE n.name = ?", (name.lower(),)):
+                      polygone = json.loads(umriss)["coordinates"]
+                      drin = any(im_ring(l, b, p[0]) and not any(im_ring(l, b, r) for r in p[1:]) for p in polygone)
+                      treffer.append(f"{voll} (Ebene {ebene}, {'drin' if drin else 'außerhalb'})")
+                  print(f"   {name} @ {b}, {l}: {', '.join(treffer) or 'kein Name'}")
+              enthaelt = db.execute("SELECT g.name, g.ebene FROM rahmen r JOIN grenzen g USING (id) WHERE r.west <= ? AND r.ost >= ? "
+                                    "AND r.sued <= ? AND r.nord >= ? ORDER BY g.ebene", (13.605, 13.605, 52.536, 52.536)).fetchall()
+              print("   R-Tree bei 52.536, 13.605:", enthaelt)
+              db.close()
+          PY

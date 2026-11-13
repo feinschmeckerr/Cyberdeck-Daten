@@ -10,6 +10,8 @@ from pathlib import Path
 
 QUELLEN = ("© OpenStreetMap-Mitwirkende, ODbL 1.0 (https://www.openstreetmap.org/copyright), "
            "über Geofabrik (https://download.geofabrik.de) und VersaTiles (https://versatiles.org); "
+           "Verwaltungsgrenzen (Kreise, Gemeinden, grenzen.sqlite): © GeoBasis-DE / BKG (VG250), dl-de/by-2-0 "
+           "(https://www.govdata.de/dl-de/by-2-0), vereinfacht; "
            "Welt-Übersicht: Natural Earth (gemeinfrei); "
            "Fahrplan: VBB Verkehrsverbund Berlin-Brandenburg GmbH, CC BY 4.0 (https://www.vbb.de/vbbgtfs)")
 

@@ -1,4 +1,4 @@
-# Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, 3D-Gebäude): je Land ein Lauf
+# Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, Verwaltungsgrenzen, 3D-Gebäude): je Land ein Lauf
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
 # von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
@@ -65,7 +65,7 @@ jobs:
         run: |
           gh release create "${{ steps.tag.outputs.tag }}" -R "${{ github.repository }}" --prerelease \
             --title "Kartendaten ${{ steps.tag.outputs.tag }}" \
-            --notes "Details der Bundesländer für die PiFlux-App. © OpenStreetMap-Mitwirkende, ODbL 1.0 – über Geofabrik."
+            --notes "Details der Bundesländer für die PiFlux-App. © OpenStreetMap-Mitwirkende, ODbL 1.0 – über Geofabrik. Verwaltungsgrenzen (Kreise, Gemeinden): © GeoBasis-DE / BKG, dl-de/by-2-0."
 
   land:
     name: ${{ matrix.land }}
@@ -126,6 +126,22 @@ jobs:
         run: |
           /usr/bin/time -v python3 tools/erzeugen/merkmale-erzeugen.py 2> zeit.txt || { cat zeit.txt; exit 1; }
           grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Verwaltungsgrenzen (Umrisse der Lage-Meldungen)
+        # Kreise und Gemeinden aus VG250 (BKG, dl-de/by-2-0), Bezirke und Ortsteile aus OSM – nur, wenn der Erzeuger
+        # des Zweigs schon je Land schreiben kann (--land); ohne VG250 kommen alle Ebenen aus OSM
+        working-directory: piflux
+        run: |
+          if ! grep -q -- "--land" tools/erzeugen/grenzen-erzeugen.py; then
+            echo "::warning::grenzen-erzeugen.py ohne --land in diesem Zweig – Paket ohne grenzen.sqlite"; exit 0
+          fi
+          mkdir -p kartendaten/vg250
+          curl -fL --retry 5 --retry-delay 20 -sS -o kartendaten/vg250/vg250.zip \
+            https://daten.gdz.bkg.bund.de/produkte/vg/vg250_ebenen_0101/aktuell/vg250_01-01.utm32s.gpkg.ebenen.zip \
+            || { echo "::warning::VG250 nicht geladen – Kreise und Gemeinden aus OSM"; rm -f kartendaten/vg250/vg250.zip; }
+          /usr/bin/time -v python3 tools/erzeugen/grenzen-erzeugen.py --land "$LAND" --ziel kartendaten/grenzen.sqlite \
+            2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+          rm -rf kartendaten/vg250
       - name: 3D-Gebäude
         working-directory: piflux
         run: |
@@ -139,6 +155,7 @@ jobs:
           for teil in suchindex.sqlite suchwoerter.sqlite merkmale.sqlite gebaeude.mbtiles strassennetz; do
             mv "piflux/kartendaten/$teil" ergebnis/
           done
+          if [ -f piflux/kartendaten/grenzen.sqlite ]; then mv piflux/kartendaten/grenzen.sqlite ergebnis/; fi
           rm -rf piflux/kartendaten
           python3 daten/werkzeuge/packen.py "$LAND" ergebnis aus
           rm -rf ergebnis
