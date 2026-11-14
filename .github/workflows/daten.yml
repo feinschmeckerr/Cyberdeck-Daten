@@ -1,4 +1,5 @@
-# Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, Verwaltungsgrenzen, 3D-Gebäude): je Land ein Lauf
+# Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, Verwaltungsgrenzen, 3D-Gebäude,
+# Objektakte: Geschosse, Eingänge, objekt.sqlite): je Land ein Lauf
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
 # von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
@@ -147,6 +148,16 @@ jobs:
         run: |
           /usr/bin/time -v python3 tools/erzeugen/gebaeude-erzeugen.py --ohne-lod2 2> zeit.txt || { cat zeit.txt; exit 1; }
           grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Objektakte (Geschosse, Eingänge, Objekte)
+        # geschosse.sqlite und eingaenge.sqlite liest die App schon (Ortsakte); objekt.sqlite ist neu (Einspeisung,
+        # Durchfahrt mit maxheight, Tiefgarage, Rettungspunkt …). Nur, was der Zweig der Erzeuger schon hat.
+        working-directory: piflux
+        run: |
+          for e in geschosse eingaenge objekt; do
+            if [ ! -f "tools/erzeugen/$e-erzeugen.py" ]; then echo "::warning::$e-erzeugen.py fehlt in diesem Zweig"; continue; fi
+            /usr/bin/time -v python3 "tools/erzeugen/$e-erzeugen.py" 2> zeit.txt || { cat zeit.txt; exit 1; }
+            grep -E "Elapsed|Maximum resident" zeit.txt
+          done
       - name: Packen und hochladen
         env:
           GH_TOKEN: ${{ github.token }}
@@ -155,7 +166,9 @@ jobs:
           for teil in suchindex.sqlite suchwoerter.sqlite merkmale.sqlite gebaeude.mbtiles strassennetz; do
             mv "piflux/kartendaten/$teil" ergebnis/
           done
-          if [ -f piflux/kartendaten/grenzen.sqlite ]; then mv piflux/kartendaten/grenzen.sqlite ergebnis/; fi
+          for teil in grenzen.sqlite geschosse.sqlite eingaenge.sqlite objekt.sqlite; do
+            if [ -f "piflux/kartendaten/$teil" ]; then mv "piflux/kartendaten/$teil" ergebnis/; fi
+          done
           rm -rf piflux/kartendaten
           python3 daten/werkzeuge/packen.py "$LAND" ergebnis aus
           rm -rf ergebnis
