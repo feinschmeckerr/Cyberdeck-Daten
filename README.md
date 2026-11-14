@@ -15,8 +15,7 @@ Zusatzpakete `lod2-berlin` und `lod2-brandenburg` (vereinfachte 3D-Dächer, nur 
   Die Weltkarte schreibt `.github/workflows/welt.yml` nach jedem Daten-Lauf ins aktuelle Release (und von Hand).
   Den Fahrplan schreibt `.github/workflows/oepnv.yml` jeden Montag und nach jedem Daten-Lauf ins aktuelle Release.
 - **3D-Dächer** schreibt `.github/workflows/lod2.yml` (von Hand bzw. vierteljährlich neu; nach jedem Daten-Lauf übernimmt
-  es die Pakete ins neue Release). **Probe** der Objektakte-Pakete ohne Release: `.github/workflows/objekt-probe.yml`
-  (Vorabfassung `probe-objektakte`, nie „latest“).
+  es die Pakete ins neue Release).
 - **Probe** der Verwaltungsgrenzen ohne Release: `.github/workflows/grenzen-probe.yml` (nur von Hand, einzelne Länder,
   misst die Größe – veröffentlicht nichts).
 - **Ablage:** je Lauf ein Release `daten-JJJJ-MM-TT-N`. Jede Datei einzeln gzip-gepackt (`<land>--<pfad>.gz`, über
