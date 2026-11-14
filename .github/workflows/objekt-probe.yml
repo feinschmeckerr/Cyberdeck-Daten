@@ -1,0 +1,162 @@
+# Probe der Objektakte-Pakete (3D-Gebäude mit Feature-ID und Feldern, Geschosse, Eingänge Fassung 2, objekt.sqlite)
+# für einzelne Länder – nur von Hand. Baut mit den Erzeugern des gewählten Zweigs von Cyberdeck, misst Dauer und Größe
+# und legt das Ergebnis in die Vorabfassung „probe-objektakte“ (nie „latest“: die App sieht sie nicht). Die
+# veröffentlichten Pakete bleiben, wie sie sind. Der Name ist nicht „Daten“: Welt und Fahrplan laufen danach nicht.
+name: Objektakte (Probe)
+
+on:
+  workflow_dispatch:
+    inputs:
+      laender:
+        description: "Länder (Kennungen mit Komma)"
+        default: bremen
+      ref:
+        description: "Zweig von Cyberdeck mit den Erzeugern"
+        default: daten-objektakte
+
+permissions:
+  contents: write
+
+concurrency:
+  group: objekt-probe
+  cancel-in-progress: false
+
+jobs:
+  wahl:
+    name: Länder
+    runs-on: ubuntu-latest
+    outputs:
+      laender: ${{ steps.laender.outputs.liste }}
+    steps:
+      - id: laender
+        env:
+          WAHL: ${{ inputs.laender }}
+        run: |
+          alle=" baden-wuerttemberg bayern berlin brandenburg bremen hamburg hessen mecklenburg-vorpommern niedersachsen nordrhein-westfalen rheinland-pfalz saarland sachsen sachsen-anhalt schleswig-holstein thueringen "
+          wahl=$(echo "$WAHL" | tr ',' ' ')
+          [ "$wahl" != alle ] || wahl="$alle"
+          for land in $wahl; do
+            echo "$alle" | grep -q " $land " || { echo "::error::Unbekanntes Land: $land"; exit 1; }
+          done
+          echo "liste=$(printf '%s\n' $wahl | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read().split()))')" >> "$GITHUB_OUTPUT"
+      - name: Vorabfassung probe-objektakte
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view probe-objektakte -R "${{ github.repository }}" > /dev/null 2>&1 || \
+            gh release create probe-objektakte -R "${{ github.repository }}" --prerelease --latest=false \
+              --title "Probe Objektakte (nicht für die App)" \
+              --notes "Probe der Objektakte-Pakete. © OpenStreetMap-Mitwirkende, ODbL 1.0 – über Geofabrik."
+
+  land:
+    name: ${{ matrix.land }}
+    needs: wahl
+    runs-on: ubuntu-latest
+    container: debian:trixie
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        land: ${{ fromJSON(needs.wahl.outputs.laender) }}
+    env:
+      LANG: C.UTF-8
+      LAND: ${{ matrix.land }}
+      GEOFABRIK: https://download.geofabrik.de/europe/germany
+    steps:
+      - name: Debian-Pakete (wie im Daten-Lauf)
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends ca-certificates curl git gh python3 python3-numpy \
+            python3-pyosmium time > /dev/null
+      - uses: actions/checkout@v5
+        with:
+          path: daten
+      - uses: actions/checkout@v5
+        with:
+          repository: feinschmeckerr/Cyberdeck
+          ref: ${{ inputs.ref }}
+          token: ${{ secrets.CYBERDECK_LESEN }}
+          path: piflux
+      - name: Rohdaten laden
+        working-directory: piflux
+        run: |
+          mkdir -p kartendaten/osm
+          holen() { curl -fL --retry 5 --retry-delay 20 -sS -o "$2" "$1"; }
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf" "kartendaten/osm/$LAND-latest.osm.pbf"
+          holen "$GEOFABRIK/$LAND-latest.osm.pbf.md5" "kartendaten/osm/$LAND-latest.osm.pbf.md5"
+          ( cd kartendaten/osm && md5sum -c --quiet "$LAND-latest.osm.pbf.md5" )
+          ls -la kartendaten/osm
+      - name: Tests der Erzeuger
+        working-directory: piflux
+        run: python3 -m unittest tests.test_objekt
+      - name: 3D-Gebäude, Geschosse, Eingänge, Objekte
+        working-directory: piflux
+        run: |
+          for e in gebaeude geschosse eingaenge objekt; do
+            echo "::group::$e"
+            arg=""; [ "$e" = gebaeude ] && arg="--ohne-lod2"
+            /usr/bin/time -v python3 "tools/erzeugen/$e-erzeugen.py" $arg 2> zeit.txt || { cat zeit.txt; exit 1; }
+            grep -E "Elapsed|Maximum resident" zeit.txt
+            echo "::endgroup::"
+          done
+          ls -la kartendaten
+      - name: Stichprobe
+        working-directory: piflux
+        run: |
+          python3 - <<'EOF'
+          import gzip, importlib.util, json, sqlite3
+          spec = importlib.util.spec_from_file_location("mvt", "tools/erzeugen/mvt.py")
+          mvt = importlib.util.module_from_spec(spec); spec.loader.exec_module(mvt)
+          db = sqlite3.connect("kartendaten/gebaeude.mbtiles")
+          meta = dict(db.execute("SELECT name, value FROM metadata"))
+          print({k: meta.get(k) for k in ("gebaeude", "geschaetzt", "fern", "fassung")})
+          kacheln = objekte = mit_id = doppelt = 0
+          felder = {}
+          for z, data in db.execute("SELECT zoom_level, tile_data FROM tiles"):
+              for _n, _e, obj in mvt.ebenen_lesen(gzip.decompress(data)):
+                  kacheln += 1
+                  ids = [o[3] for o in obj if o[3] is not None]
+                  objekte += len(obj); mit_id += len(ids); doppelt += len(ids) - len(set(ids))
+                  for o in obj:
+                      for k, _w in o[2]:
+                          felder[k] = felder.get(k, 0) + 1
+          print(f"Kacheln {kacheln}, Objekte {objekte}, mit ID {mit_id}, doppelte IDs je Kachel {doppelt}")
+          print("Felder:", dict(sorted(felder.items())))
+          assert doppelt == 0 and mit_id == objekte
+          for datei, tab in (("eingaenge", "eingaenge"), ("objekt", "objekt"), ("geschosse", "geschosse")):
+              d = sqlite3.connect(f"kartendaten/{datei}.sqlite")
+              print(datei, d.execute(f"SELECT COUNT(*) FROM {tab}").fetchone()[0])
+          d = sqlite3.connect("kartendaten/eingaenge.sqlite")
+          print("Eingänge mit ebene/strasse/breite_m:", d.execute("SELECT COUNT(ebene), COUNT(strasse), COUNT(breite_m) FROM eingaenge").fetchone())
+          d = sqlite3.connect("kartendaten/objekt.sqlite")
+          print("Objekte je Art:", d.execute("SELECT art, COUNT(*), COUNT(hoehe_max) FROM objekt GROUP BY art").fetchall())
+          for zeile in d.execute("SELECT art, name, ref, hoehe_max, details FROM objekt WHERE art IN ('einspeisung','durchfahrt','tiefgarage') LIMIT 6"):
+              print("  ", zeile)
+          EOF
+      - name: Packen und in die Probe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p ergebnis
+          for teil in gebaeude.mbtiles geschosse.sqlite eingaenge.sqlite objekt.sqlite; do mv "piflux/kartendaten/$teil" ergebnis/; done
+          rm -rf piflux/kartendaten
+          python3 daten/werkzeuge/packen.py "$LAND" ergebnis aus
+          gh release upload probe-objektakte -R "${{ github.repository }}" --clobber aus/*
+
+  verzeichnis:
+    name: Verzeichnis der Probe
+    needs: land
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir manifeste
+          gh release download probe-objektakte -R "${{ github.repository }}" -D manifeste --pattern '*.json'
+          rm -f manifeste/pakete.json
+          python3 werkzeuge/verzeichnis.py manifeste probe-objektakte > pakete.json
+          python3 -c 'import json; d=json.load(open("pakete.json")); [print(l["land"], [(f["pfad"], round(f["gz_groesse"]/1e6, 1)) for f in l["dateien"]]) for l in d["laender"]]'
+          gh release upload probe-objektakte -R "${{ github.repository }}" --clobber pakete.json
