@@ -181,7 +181,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: pakete.json aus den Manifesten der Länder
+      - name: Welt, Fahrplan und 3D-Dächer aus dem bisherigen Release mitnehmen
+        # G-021: erst mit ihnen wird das neue Release „latest“ (sonst meldet die App sie bis zum Nachziehen von Welt,
+        # Fahrplan und LoD2 „nicht mehr im Verzeichnis“). Welt und Fahrplan erzeugen danach wie bisher neu, LoD2 hat
+        # dann nichts mehr zu übernehmen. Scheitert das, bleibt das Release Vorabfassung (Freigeben läuft nicht).
+        if: needs.land.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.anlegen.outputs.tag }}
+        run: python3 werkzeuge/mitnehmen.py "$TAG"
+      - name: pakete.json aus den Manifesten der Länder (und der mitgenommenen Zusatzpakete)
+        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.anlegen.outputs.tag }}
@@ -192,8 +202,8 @@ jobs:
           python3 werkzeuge/verzeichnis.py manifeste "$TAG" > pakete.json
           python3 -c 'import json; d=json.load(open("pakete.json")); [print(l["land"], round(l["gz_groesse"]/1e6), "MB") for l in d["laender"]]'
           gh release upload "$TAG" -R "${{ github.repository }}" --clobber pakete.json
-      - name: Freigeben (nur wenn alle Länder fertig sind)
-        if: needs.land.result == 'success'
+      - name: Freigeben (nur wenn alle Länder fertig und Welt, Fahrplan, 3D-Dächer dabei sind)
+        if: needs.land.result == 'success' && success()
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "${{ needs.anlegen.outputs.tag }}" -R "${{ github.repository }}" --prerelease=false --latest

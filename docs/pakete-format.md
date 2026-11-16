@@ -14,11 +14,11 @@ stehen in `laender` mit `art`, `fuer`, `optional` und `lizenz`; sie werden nur a
  "basis": "https://github.com/feinschmeckerr/Cyberdeck-Daten/releases/download/daten-2026-11-15-8/",
  "lizenz": "… © OpenStreetMap … ; 3D-Dächer Berlin … dl-de/zero-2.0 …; 3D-Dächer Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2.0 …",
  "arten": {                          // NEU: was es an Inhalten gibt (Katalog, für neue Apps)
-   "gebaeude":  {"name": "3D-Gebäude", "fassung": 2, "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs"},
+   "gebaeude":  {"name": "3D-Gebäude", "fassung": 3, "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern bei Gebäudeteilen"},
    "geschosse": {"name": "Geschosse (OSM)"},
    "eingaenge": {"name": "Eingänge", "fassung": 2, "inhalt": "zusätzlich ebene, strasse, hausnummer, plz, ort, einheit, breite_m, hoehe_m"},
    "objekt":    {"name": "Objektakte", "fassung": 1, "inhalt": "Einspeisung, Feuermelder, …"},
-   "lod2":      {"name": "3D-Dächer (LoD2)", "fassung": 1, "optional": true, "nur": ["berlin", "brandenburg"]},
+   "lod2":      {"name": "3D-Dächer (LoD2)", "fassung": 2, "inhalt": "Höfe richtig zerlegt", "optional": true, "nur": ["berlin", "brandenburg"]},
    "suchindex": {...}, "suchwoerter": {...}, "merkmale": {...}, "strassennetz": {...}, "grenzen": {...},
    "oepnv": {...}, "welt": {...}, "welt-osm": {...}
  },
@@ -48,7 +48,7 @@ Manifest (wie bisher) + optionale neue Felder:
 
 ## Dateien
 
-### gebaeude.mbtiles (Fassung 2; metadata `fassung`=2, `kennung`)
+### gebaeude.mbtiles (Fassung 3; metadata `fassung`=3, `kennung`, `eltern`)
 Ebene `gebaeude`, Zoom 14 und 15, wie bisher `h` (Höhe m), `m` (Unterkante), `s`=1 geschätzt, (`f t d a g q` nur mit LoD2 am Pi).
 Neu, nur wenn in OSM eingetragen: `l` building:levels, `u` building:levels:underground, `r` roof:levels (Zahl; ganze
 Zahlen als int), `b` building=* ohne „yes“ (kurzer Text, nur [a-z0-9_:;.-]), `rs` roof:shape.
@@ -56,6 +56,12 @@ Zahlen als int), `b` building=* ohne „yes“ (kurzer Text, nur [a-z0-9_:;.-]),
 Zurück: `osm = id >> 2`, `relation = id & 1`, `teil = (id >> 1) & 1`. Eindeutig je Kachel und in Z14/Z15 gleich;
 < 2^53 (sicher als Double in Ausdrücken). Ein Gebäude an der Landesgrenze kann in zwei Länderpaketen dieselbe ID haben
 (je Kachel liefert die App nur eine Datei – unkritisch).
+**Fassung 3 – `eltern`** (G-036, nur bei Gebäudeteilen, Bit 1 der Feature-ID gesetzt): ganze Zahl (MVT uint_value) =
+Feature-ID des Hauptgebäudes (`osm_id*4 + art`, Bit 1 = 0) – das kleinste Gebäude (building=*, kein Teil), in dem der
+Mittelpunkt des Teils liegt (nicht im Hof); gesucht in der Kachel des Teils, sonst in den acht Nachbarkacheln. Fehlt,
+wenn kein Gebäude den Teil umschließt. Alle Teile eines Hauses haben denselben Wert; der Umriss des Hauptgebäudes ist
+meist nicht in der Kachel (die Teile ersetzen ihn) – steht er doch darin, ist seine Feature-ID gleich `eltern`. In Z14
+und Z15 gleich. Ältere Apps übergehen das Feld. metadata `teile_mit_eltern` = Anzahl der Teile mit `eltern`.
 
 ### objekt.sqlite (Fassung 1; info `fassung`=1)
 ```
@@ -84,12 +90,16 @@ Bisher: `id, breite, laenge, art, name, ref, rollstuhl, tuer, zugang, zelle`. Ne
 ### geschosse.sqlite (unverändert, neu im Länderpaket)
 `geschosse(id, breite, laenge, geschosse, dach, unter, art, baujahr, zelle)` – wie am Pi.
 
-### lod2.sqlite (Zusatzpaket lod2-<land>, Fassung 1)
+### lod2.sqlite (Zusatzpaket lod2-<land>, Fassung 2; Blob-Format 1)
 ```
 dach(tx INTEGER, ty INTEGER, daten BLOB, PRIMARY KEY (tx, ty)) WITHOUT ROWID   -- Zoom 15, XYZ (y von Norden)
-info(schluessel, wert)   -- land, lizenz, quelle, fassung, zoom (15), extent (4096), gebaeude, dreiecke, kacheln, zip_fehler, erzeugt, format
+info(schluessel, wert)   -- land, lizenz, quelle, fassung, format_fassung, zoom (15), extent (4096), gebaeude, dreiecke,
+                         -- kacheln, zip_fehler, erzeugt, format
 ```
-`daten` = gzip von: `"LD2"`, Fassung (1 Byte), Anzahl Gebäude (uint32), dann je Gebäude(teil):
+`fassung` (info, im Manifest je Datei) ist die Fassung des Inhalts: 1 = erste Pakete (Dächer mit zwei und mehr Höfen
+falsch zerlegt), 2 = Höfe richtig zerlegt (G-037). Das Blob-Format (`format_fassung`, Byte nach „LD2“) bleibt 1 – die App
+darf die Manifest-Fassung nicht mit dem Blob-Format vergleichen (ein Format > 1 lehnt sie ab).
+`daten` = gzip von: `"LD2"`, Format (1 Byte, 1), Anzahl Gebäude (uint32), dann je Gebäude(teil):
 `boden` uint16 (dm ü. NHN), `dachform` uint16 (roofType, ALKIS: 1000 Flach, 2100 Pult, 3100 Sattel, 3200 Walm, …; 0 unbekannt),
 `n_punkte` uint16, `n_dreiecke` uint16, Punkte `n × (x int16, y int16, z uint16)` – x/y in Kachelpixeln (Extent 4096,
 Ursprung oben links, darf über die Kachel hinaus), z in dm über `boden`; Dreiecke `n × 3` Indizes (uint8 wenn

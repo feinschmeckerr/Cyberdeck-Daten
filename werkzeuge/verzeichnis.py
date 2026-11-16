@@ -28,13 +28,14 @@ QUELLEN = ("© OpenStreetMap-Mitwirkende, ODbL 1.0 (https://www.openstreetmap.or
 ARTEN = {
     "suchindex": {"name": "Suche"}, "suchwoerter": {"name": "Tippfehler-Wörter"}, "merkmale": {"name": "Merkmale"},
     "strassennetz": {"name": "Straßennetz"}, "grenzen": {"name": "Verwaltungsgrenzen"},
-    "gebaeude": {"name": "3D-Gebäude", "fassung": 2,
-                 "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs"},
+    "gebaeude": {"name": "3D-Gebäude", "fassung": 3,
+                 "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern bei Gebäudeteilen"},
     "geschosse": {"name": "Geschosse (OSM)"},
     "eingaenge": {"name": "Eingänge", "fassung": 2, "inhalt": "zusätzlich ebene, strasse, hausnummer, plz, ort, einheit, breite_m, hoehe_m"},
     "objekt": {"name": "Objektakte", "fassung": 1,
                "inhalt": "Einspeisung, Feuermelder, Rettungspunkt, Sammelplatz, Zufahrt, Durchfahrt, Tiefgarage, Parkhaus, Einfahrt, PV"},
-    "lod2": {"name": "3D-Dächer (LoD2)", "fassung": 1, "optional": True, "nur": ["berlin", "brandenburg"]},
+    "lod2": {"name": "3D-Dächer (LoD2)", "fassung": 2, "inhalt": "Höfe richtig zerlegt", "optional": True,
+             "nur": ["berlin", "brandenburg"]},
     "oepnv": {"name": "Fahrplan"}, "welt": {"name": "Welt-Übersicht"}, "welt-osm": {"name": "Welt-Straßenkarte"},
 }
 

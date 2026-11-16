@@ -20,7 +20,9 @@ Zusatzpakete `lod2-berlin` und `lod2-brandenburg` (vereinfachte 3D-Dächer, nur 
   misst die Größe – veröffentlicht nichts).
 - **Ablage:** je Lauf ein Release `daten-JJJJ-MM-TT-N`. Jede Datei einzeln gzip-gepackt (`<land>--<pfad>.gz`, über
   1,9 GB in Teile), dazu je Land ein Manifest `<land>.json` und das Verzeichnis `pakete.json` mit Größen und sha256.
-  Die App liest `releases/latest/download/pakete.json`.
+  Die App liest `releases/latest/download/pakete.json`. Ein neues Release wird erst „latest“, wenn alle Länder fertig
+  sind und Welt, Fahrplan und 3D-Dächer aus dem bisherigen Release mitgenommen wurden (`werkzeuge/mitnehmen.py`);
+  Welt und Fahrplan erzeugen danach wie bisher neu.
 - **Hier liegt nur Offenes,** nie eigene Daten (Wegpunkte, Missionen, Schlüssel).
 
 ## Lizenz der Daten
