@@ -55,7 +55,7 @@ done
 
 fehler() { printf 'FEHLER: %s\n' "$*" >&2; exit 1; }
 lauf() {
-  printf '→'; printf ' %q' "$@"; printf '\n'
+  printf '→'; ( export LC_ALL=C; printf ' %q' "$@" ); printf '\n'
   [ "$TROCKEN" = 1 ] || "$@"
 }
 frage() {  # frage <text>: weiter nur mit j

@@ -70,9 +70,10 @@ sag() { printf '%s\n' "$*" | tee -a "$PROTOKOLL"; }
 fehler() { printf 'FEHLER: %s\n' "$*" | tee -a "$PROTOKOLL" >&2; exit 1; }
 warnung() { printf 'Achtung: %s\n' "$*" | tee -a "$PROTOKOLL" >&2; }
 
-# Befehl ausführen (bei --trocken nur zeigen); Ausgabe ins Protokoll
+# Befehl ausführen (bei --trocken nur zeigen); Ausgabe ins Protokoll. %q unter LC_ALL=C: die bash 3.2 von macOS
+# zerlegt unter UTF-8 Zeichen wie „–“ in halb maskierte Bytes (ungültiges UTF-8 im Protokoll).
 lauf() {
-  printf '→' | tee -a "$PROTOKOLL"; printf ' %q' "$@" | tee -a "$PROTOKOLL"; printf '\n' | tee -a "$PROTOKOLL"
+  printf '→' | tee -a "$PROTOKOLL"; ( export LC_ALL=C; printf ' %q' "$@" ) | tee -a "$PROTOKOLL"; printf '\n' | tee -a "$PROTOKOLL"
   [ "$TROCKEN" = 1 ] && return 0
   "$@" 2>&1 | tee -a "$PROTOKOLL"
   return "${PIPESTATUS[0]}"
