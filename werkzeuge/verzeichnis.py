@@ -31,8 +31,9 @@ ARTEN = {
                  "inhalt": "Bahnhöfe: level & Co. an Aufzügen und Bahnsteigen, Rolltreppen (highway=steps + conveying), "
                            "railway=subway_entrance/train_station_entrance, public_transport=platform/station"},
     "strassennetz": {"name": "Straßennetz"}, "grenzen": {"name": "Verwaltungsgrenzen"},
-    "gebaeude": {"name": "3D-Gebäude", "fassung": 3,
-                 "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern bei Gebäudeteilen"},
+    "gebaeude": {"name": "3D-Gebäude", "fassung": 4,
+                 "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern, bp, ml, xl, ly bei "
+                           "Gebäudeteilen"},
     "geschosse": {"name": "Geschosse (OSM)"},
     "eingaenge": {"name": "Eingänge", "fassung": 2, "inhalt": "zusätzlich ebene, strasse, hausnummer, plz, ort, einheit, breite_m, hoehe_m"},
     "objekt": {"name": "Objektakte", "fassung": 1,

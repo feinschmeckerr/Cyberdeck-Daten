@@ -14,7 +14,7 @@ stehen in `laender` mit `art`, `fuer`, `optional` und `lizenz`; sie werden nur a
  "basis": "https://github.com/feinschmeckerr/Cyberdeck-Daten/releases/download/daten-2026-11-15-8/",
  "lizenz": "… © OpenStreetMap … ; 3D-Dächer Berlin … dl-de/zero-2.0 …; 3D-Dächer Brandenburg: © GeoBasis-DE/LGB, dl-de/by-2.0 …",
  "arten": {                          // NEU: was es an Inhalten gibt (Katalog, für neue Apps)
-   "gebaeude":  {"name": "3D-Gebäude", "fassung": 3, "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern bei Gebäudeteilen"},
+   "gebaeude":  {"name": "3D-Gebäude", "fassung": 4, "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern, bp, ml, xl, ly bei Gebäudeteilen"},
    "merkmale":  {"name": "Merkmale", "fassung": 2, "inhalt": "Bahnhöfe: level & Co. an Aufzügen und Bahnsteigen, Rolltreppen, …"},
    "geschosse": {"name": "Geschosse (OSM)"},
    "eingaenge": {"name": "Eingänge", "fassung": 2, "inhalt": "zusätzlich ebene, strasse, hausnummer, plz, ort, einheit, breite_m, hoehe_m"},
@@ -49,7 +49,7 @@ Manifest (wie bisher) + optionale neue Felder:
 
 ## Dateien
 
-### gebaeude.mbtiles (Fassung 3; metadata `fassung`=3, `kennung`, `eltern`)
+### gebaeude.mbtiles (Fassung 4; metadata `fassung`=4, `kennung`, `eltern`, `teile_mit_bp` …)
 Ebene `gebaeude`, Zoom 14 und 15, wie bisher `h` (Höhe m), `m` (Unterkante), `s`=1 geschätzt, (`f t d a g q` nur mit LoD2 am Pi).
 Neu, nur wenn in OSM eingetragen: `l` building:levels, `u` building:levels:underground, `r` roof:levels (Zahl; ganze
 Zahlen als int), `b` building=* ohne „yes“ (kurzer Text, nur [a-z0-9_:;.-]), `rs` roof:shape.
@@ -63,6 +63,15 @@ Mittelpunkt des Teils liegt (nicht im Hof); gesucht in der Kachel des Teils, son
 wenn kein Gebäude den Teil umschließt. Alle Teile eines Hauses haben denselben Wert; der Umriss des Hauptgebäudes ist
 meist nicht in der Kachel (die Teile ersetzen ihn) – steht er doch darin, ist seine Feature-ID gleich `eltern`. In Z14
 und Z15 gleich. Ältere Apps übergehen das Feld. metadata `teile_mit_eltern` = Anzahl der Teile mit `eltern`.
+
+**Fassung 4 – Gebäudeteile genauer** (P9 3.3, `werkzeuge/gebaeudeteile.py` nach dem Erzeuger): an Gebäudeteilen (Bit 1
+der Feature-ID) zusätzlich, nur wenn in OSM eingetragen: `bp` building:part=* ohne „yes“ (roof, platform, tower …; kurzer
+Text, nur [a-z0-9_:;.-]), `ml`/`xl` min_level/max_level (Etagen-Nummern wie `level`; fehlen beide, ersatzweise kleinste
+und größte Etage aus `level` des Teils; ganze Zahlen als uint bzw. – negativ – als sint, sonst double), `ly` layer
+(ganze Zahl −10 … 10). `rs` (roof:shape) tragen Teile schon seit Fassung 2. Alle bisherigen Felder, Geometrie und
+Feature-ID bleiben gleich; ältere Apps übergehen die neuen Felder. metadata `teile_mit_bp`, `teile_mit_ebene`,
+`teile_mit_layer` (Teile in den Kacheln), `teile` (Kurzbeschreibung), `json` nennt die neuen Felder. Das Werkzeug hebt
+nur Fassung 3 auf 4 (eine ältere Datei bekommt die Felder, behält aber ihre Fassung).
 
 ### merkmale.sqlite (Fassung 2; info `fassung`=2 – vorher ohne)
 Wie bisher (Tabelle `merkmale` mit `typ`, `name`, `breite`, `laenge`, `osm_typ`, `osm_id`, Zellen, `tags` als JSON,

@@ -1,5 +1,5 @@
 # Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, Verwaltungsgrenzen, 3D-Gebäude,
-# Objektakte: Geschosse, Eingänge, objekt.sqlite; Bahnhöfe genauer): je Land ein Lauf
+# Objektakte: Geschosse, Eingänge, objekt.sqlite; Bahnhöfe und Gebäudeteile genauer): je Land ein Lauf
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
 # von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
@@ -155,6 +155,14 @@ jobs:
         working-directory: piflux
         run: |
           /usr/bin/time -v python3 tools/erzeugen/gebaeude-erzeugen.py --ohne-lod2 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Gebäudeteile genauer (Fassung 4 – eigenes Werkzeug dieses Repos)
+        # bp (building:part), ml/xl (min_level/max_level), ly (layer) an den Gebäudeteilen (P9 3.3,
+        # werkzeuge/gebaeudeteile.py); hebt nur Fassung 3 auf 4
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 ../daten/werkzeuge/gebaeudeteile.py kartendaten/gebaeude.mbtiles kartendaten/osm/*.osm.pbf \
+            2> zeit.txt || { cat zeit.txt; exit 1; }
           grep -E "Elapsed|Maximum resident" zeit.txt
       - name: Objektakte (Geschosse, Eingänge, Objekte)
         # geschosse.sqlite und eingaenge.sqlite liest die App schon (Ortsakte); objekt.sqlite ist neu (Einspeisung,
