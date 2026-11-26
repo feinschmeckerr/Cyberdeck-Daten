@@ -20,11 +20,14 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 PAKETE = ("welt", "weltosm", "oepnv", "lod2-berlin", "lod2-brandenburg")
 NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")  # Release-Dateien: ohne Pfad und ohne Glob-Zeichen
 VERSUCHE = 2
+HOCHLADEN_VERSUCHE = 4  # ein Netzfehler bei einer von Hunderten Dateien soll nicht den ganzen Lauf abbrechen
+WARTEN_S = 15
 
 
 def gh(*argumente):
@@ -54,7 +57,27 @@ def sha256(pfad):
 
 
 def namen(tag, repo):
-    return set(gh("release", "view", tag, "-R", repo, "--json", "assets", "-q", ".assets[].name").split())
+    return set(groessen(tag, repo))
+
+
+def groessen(tag, repo):
+    """Release-Dateien mit Größe: {name: bytes}."""
+    zeilen = gh("release", "view", tag, "-R", repo, "--json", "assets", "-q", '.assets[] | "\\(.name) \\(.size)"')
+    return {name: int(groesse) for name, groesse in (z.rsplit(" ", 1) for z in zeilen.split("\n") if z.strip())}
+
+
+def hochladen(tag, repo, pfad):
+    """Lädt eine Datei hoch; bei einem Fehler bis zu HOCHLADEN_VERSUCHE Mal mit wachsender Pause."""
+    for versuch in range(1, HOCHLADEN_VERSUCHE + 1):
+        try:
+            return gh("release", "upload", tag, "-R", repo, "--clobber", str(pfad))
+        except subprocess.CalledProcessError as fehler:
+            if versuch == HOCHLADEN_VERSUCHE:
+                raise
+            grund = (fehler.stderr or "").strip().splitlines()[-1:] or ["?"]
+            print(f"  {pfad.name}: Hochladen gescheitert ({grund[0]}), Versuch {versuch + 1} in {WARTEN_S * versuch} s",
+                  flush=True)
+            time.sleep(WARTEN_S * versuch)
 
 
 def laden(tag, repo, name, ordner):
@@ -64,7 +87,7 @@ def laden(tag, repo, name, ordner):
     return ziel
 
 
-def mitnehmen(paket, alt, neu, repo, ordner, alt_namen):
+def mitnehmen(paket, alt, neu, repo, ordner, alt_namen, schon_da=None):
     manifest_name = f"{paket}.json"
     manifest_pfad = laden(alt, repo, manifest_name, ordner)
     manifest = json.loads(manifest_pfad.read_text(encoding="utf-8"))
@@ -72,7 +95,11 @@ def mitnehmen(paket, alt, neu, repo, ordner, alt_namen):
     fehlen = [name for name, _g, _s in liste if name not in alt_namen]
     if fehlen:
         raise RuntimeError(f"{paket}: in {alt} fehlen Dateien des Manifests: {', '.join(fehlen)}")
+    schon_da = schon_da or {}
     for name, groesse, soll in liste:
+        if schon_da.get(name) == groesse:  # nach einem Abbruch (release.sh --tag) nicht noch einmal laden
+            print(f"  {name}: schon in {neu}", flush=True)
+            continue
         for versuch in range(1, VERSUCHE + 1):
             pfad = laden(alt, repo, name, ordner)
             if pfad.stat().st_size == groesse and sha256(pfad) == soll:
@@ -81,10 +108,10 @@ def mitnehmen(paket, alt, neu, repo, ordner, alt_namen):
             pfad.unlink()
         else:
             raise RuntimeError(f"{paket}: {name} passt nicht zum Manifest (wird {alt} gerade neu beschrieben?)")
-        gh("release", "upload", neu, "-R", repo, "--clobber", str(pfad))
+        hochladen(neu, repo, pfad)
         pfad.unlink()
         print(f"  {name}: {groesse / 1e6:.1f} MB", flush=True)
-    gh("release", "upload", neu, "-R", repo, "--clobber", str(manifest_pfad))
+    hochladen(neu, repo, manifest_pfad)
     manifest_pfad.unlink()
     return len(liste)
 
@@ -101,7 +128,8 @@ def main():
     if not alt or alt == neu:
         print("Kein bisheriges Release – nichts mitzunehmen")
         return 0
-    alt_namen, neu_namen = namen(alt, repo), namen(neu, repo)
+    alt_namen, neu_groessen = namen(alt, repo), groessen(neu, repo)
+    neu_namen = set(neu_groessen)
     with tempfile.TemporaryDirectory() as ordner:
         for paket in pakete:
             if f"{paket}.json" in neu_namen:
@@ -110,7 +138,7 @@ def main():
                 print(f"{paket}: nicht in {alt} – übergangen")
             else:
                 print(f"{paket}: aus {alt} nach {neu}", flush=True)
-                anzahl = mitnehmen(paket, alt, neu, repo, Path(ordner), alt_namen)
+                anzahl = mitnehmen(paket, alt, neu, repo, Path(ordner), alt_namen, neu_groessen)
                 print(f"{paket}: {anzahl} Dateien und Manifest mitgenommen", flush=True)
     return 0
 
