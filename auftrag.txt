@@ -1,6 +1,8 @@
-# Länder für den nächsten Lauf (Kennungen mit Komma oder „alle“) – eine Änderung hier startet ihn
+# Vorgaben für werkzeuge/daten-lauf.sh (Lauf auf dem Mac), wenn --land bzw. --zweig fehlen:
+# Länder (Kennungen mit Komma oder „alle“)
 alle
-# Zweig von Cyberdeck mit den Erzeugern (auch für den monatlichen Lauf)
+# Zweig von Cyberdeck mit den Erzeugern
 zweig=ios
+# 26.11.: Lauf auf dem Mac statt GitHub Actions; Bahnhöfe (merkmale Fassung 2) und Gebäudeteile (gebaeude Fassung 4)
 # 14.11.: Volllauf mit Verwaltungsgrenzen je Land (grenzen.sqlite); Erzeuger auf ios-lage, bis er in ios ist
 # 04.11.: Fußnetz quert Wohnstraßen (kanten_fuss.u1); fester Kantenschlüssel (kanten_osm.u4), park_ride in den Merkmalen

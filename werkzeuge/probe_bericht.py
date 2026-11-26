@@ -1,4 +1,4 @@
-"""Bericht der Bahnhof-Probe (.github/workflows/bahnhof-probe.yml) als Markdown: Abdeckung der neuen Angaben,
+"""Bericht je Land (daten-lauf.sh → berichte/<land>.md) als Markdown: Abdeckung der neuen Angaben,
 Größen vorher/nachher (roh und gzip) und Gegenprobe der Kacheln (Objekte, IDs, Geometrie und alte Felder unverändert).
 
     python3 werkzeuge/probe_bericht.py <ordner vorher> <ordner nachher>

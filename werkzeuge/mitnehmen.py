@@ -1,15 +1,16 @@
-"""Nimmt die Zusatzpakete (Welt, Fahrplan, 3D-Dächer) aus dem bisherigen Release in ein neues mit – bevor das neue
-„latest“ wird (G-021). Sonst ist ein neues Release nach dem Daten-Lauf zeitweise ohne Welt, Fahrplan und LoD2, bis
-Welt, Fahrplan und LoD2 (workflow_run) nachgezogen haben; die App meldet sie so lange „nicht mehr im Verzeichnis“.
+"""Nimmt Pakete (Zusatzpakete wie Welt, Fahrplan, 3D-Dächer und Länder, die ein Lauf nicht neu gebaut hat) aus dem
+bisherigen Release in ein neues mit – bevor das neue „latest“ wird (G-021). Sonst fehlten sie dem neuen Release und die
+App meldete sie „nicht mehr im Verzeichnis“.
 
 Je Paket: fehlt es dem neuen Release und hat das bisherige (gh release view: „latest“) sein Manifest <paket>.json,
 werden die Dateien aus dem Manifest einzeln geladen, mit Größe und sha256 des Manifests geprüft, hochgeladen und
 gelöscht (wenig Platte); das Manifest kommt zuletzt – ein Manifest steht nur im Release, wenn alle Dateien da sind.
-Danach erzeugen Welt und Fahrplan wie bisher neu (--clobber); LoD2 „übernehmen“ sieht die Pakete schon und tut nichts.
 Ein Paket, das das bisherige Release nicht hat, wird übergangen. Jeder andere Fehler bricht ab (Ausgang 1), damit das
 neue Release nicht unvollständig freigegeben wird.
 
     python3 werkzeuge/mitnehmen.py <neues-tag> [paket …]   (Repo aus GITHUB_REPOSITORY; ohne Pakete: PAKETE)
+
+Aufgerufen von werkzeuge/release.sh (für alles, was der Daten-Lauf nicht gebaut hat – auch Länder).
 """
 
 import hashlib
@@ -119,5 +120,5 @@ if __name__ == "__main__":
         sys.exit(main())
     except (subprocess.CalledProcessError, RuntimeError, ValueError, KeyError, OSError) as fehler:
         ausgabe = getattr(fehler, "stderr", "") or ""
-        print(f"::error::Mitnehmen gescheitert: {fehler} {ausgabe.strip()}", flush=True)
+        print(f"FEHLER: Mitnehmen gescheitert: {fehler} {ausgabe.strip()}", flush=True)
         sys.exit(1)
