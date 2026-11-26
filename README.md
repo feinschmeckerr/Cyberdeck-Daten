@@ -43,7 +43,7 @@ brew install python git gh osmium-tool node
 Python ab 3.10 nehmen (das `python3` von macOS ist 3.9; Homebrew legt `python3.13` an):
 
 ```bash
-python3 -m venv ~/.venv/cyberdeck-daten && ~/.venv/cyberdeck-daten/bin/pip install osmium numpy
+python3.13 -m venv ~/.venv/cyberdeck-daten && ~/.venv/cyberdeck-daten/bin/pip install osmium numpy
 ```
 
 ```bash
