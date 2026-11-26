@@ -16,6 +16,9 @@ Zusatzpakete `lod2-berlin` und `lod2-brandenburg` (vereinfachte 3D-Dächer, nur 
   Den Fahrplan schreibt `.github/workflows/oepnv.yml` jeden Montag und nach jedem Daten-Lauf ins aktuelle Release.
 - **3D-Dächer** schreibt `.github/workflows/lod2.yml` (von Hand bzw. vierteljährlich neu; nach jedem Daten-Lauf übernimmt
   es die Pakete ins neue Release).
+- **Eigene Werkzeuge** (nur Datenaufbereitung, kein PiFlux-Code) laufen im Daten-Lauf nach den Erzeugern:
+  `werkzeuge/bahnhof.py` ergänzt `merkmale.sqlite` um Ebenen, Rolltreppen und Zugänge für Bahnhöfe (Fassung 2). Prüfung:
+  `python3 -m unittest discover -s tests` (auch als Aktion „Prüfen“).
 - **Probe** der Verwaltungsgrenzen ohne Release: `.github/workflows/grenzen-probe.yml` (nur von Hand, einzelne Länder,
   misst die Größe – veröffentlicht nichts).
 - **Ablage:** je Lauf ein Release `daten-JJJJ-MM-TT-N`. Jede Datei einzeln gzip-gepackt (`<land>--<pfad>.gz`, über

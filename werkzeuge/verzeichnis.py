@@ -26,7 +26,10 @@ QUELLEN = ("© OpenStreetMap-Mitwirkende, ODbL 1.0 (https://www.openstreetmap.or
 
 # Was in den Dateien eines Pakets steckt (Feld „art“ je Datei bzw. je Zusatzpaket) – für neuere Apps
 ARTEN = {
-    "suchindex": {"name": "Suche"}, "suchwoerter": {"name": "Tippfehler-Wörter"}, "merkmale": {"name": "Merkmale"},
+    "suchindex": {"name": "Suche"}, "suchwoerter": {"name": "Tippfehler-Wörter"},
+    "merkmale": {"name": "Merkmale", "fassung": 2,
+                 "inhalt": "Bahnhöfe: level & Co. an Aufzügen und Bahnsteigen, Rolltreppen (highway=steps + conveying), "
+                           "railway=subway_entrance/train_station_entrance, public_transport=platform/station"},
     "strassennetz": {"name": "Straßennetz"}, "grenzen": {"name": "Verwaltungsgrenzen"},
     "gebaeude": {"name": "3D-Gebäude", "fassung": 3,
                  "inhalt": "Feature-ID (OSM-Kennung*4+Art) und Felder h, m, s, l, u, r, b, rs; eltern bei Gebäudeteilen"},

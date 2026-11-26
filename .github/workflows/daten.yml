@@ -1,5 +1,5 @@
 # Details der Bundesländer für die PiFlux-App (Suche, Tippfehler, Straßennetz, Merkmale, Verwaltungsgrenzen, 3D-Gebäude,
-# Objektakte: Geschosse, Eingänge, objekt.sqlite): je Land ein Lauf
+# Objektakte: Geschosse, Eingänge, objekt.sqlite; Bahnhöfe genauer): je Land ein Lauf
 # mit den Erzeugern des PiFlux (tools/erzeugen/ im privaten Repo Cyberdeck, gelesen mit dem Secret CYBERDECK_LESEN),
 # Ergebnis als Release dieses öffentlichen Repos – die App lädt ohne Zugangsschlüssel. Grundkarten lädt die App direkt
 # von der Geofabrik. Monatlich, von Hand (dann auf Wunsch nur einzelne Länder) und bei jeder Änderung an auftrag.txt
@@ -126,6 +126,14 @@ jobs:
         working-directory: piflux
         run: |
           /usr/bin/time -v python3 tools/erzeugen/merkmale-erzeugen.py 2> zeit.txt || { cat zeit.txt; exit 1; }
+          grep -E "Elapsed|Maximum resident" zeit.txt
+      - name: Merkmale für Bahnhöfe (Ebenen, Rolltreppen, Zugänge – eigenes Werkzeug dieses Repos)
+        # ergänzt merkmale.sqlite (Fassung 2): level & Co. an Aufzügen und Bahnsteigen, Rolltreppen, U-/S-Bahn-Zugänge,
+        # Stationen (P9 3.1, werkzeuge/bahnhof.py)
+        working-directory: piflux
+        run: |
+          /usr/bin/time -v python3 ../daten/werkzeuge/bahnhof.py kartendaten/merkmale.sqlite kartendaten/osm/*.osm.pbf \
+            2> zeit.txt || { cat zeit.txt; exit 1; }
           grep -E "Elapsed|Maximum resident" zeit.txt
       - name: Verwaltungsgrenzen (Umrisse der Lage-Meldungen)
         # Kreise und Gemeinden aus VG250 (BKG, dl-de/by-2-0), Bezirke und Ortsteile aus OSM – nur, wenn der Erzeuger
