@@ -21,7 +21,9 @@ SCHEMA = """CREATE TABLE merkmale (id INTEGER PRIMARY KEY, typ TEXT, name TEXT, 
 class Bahnhof(unittest.TestCase):
     def index(self):
         db = sqlite3.connect(":memory:")
-        db.execute(SCHEMA)
+        # wie im Erzeuger: unter anderem Namen angelegt und umbenannt (SQLite schreibt dann „"merkmale"“ ins Schema)
+        db.execute(SCHEMA.replace("TABLE merkmale", "TABLE merkmale_sortiert"))
+        db.execute("ALTER TABLE merkmale_sortiert RENAME TO merkmale")
         db.execute("CREATE INDEX merkmale_typ ON merkmale (typ, zelle_lat, zelle_lon)")
         db.execute("CREATE TABLE typen AS SELECT typ, 0 AS anzahl FROM merkmale")
         db.execute("CREATE TABLE formen AS SELECT typ, form, 0 AS anzahl FROM merkmale")

@@ -24,6 +24,8 @@ info: fassung = 2 (ohne: ohne diese Angaben), bahnhof = JSON mit Anzahl und „m
 
 import json
 import math
+import re
+import shutil
 import sqlite3
 import sys
 import time
@@ -170,8 +172,8 @@ class Ergaenzung:
             spalten = "typ, name, breite, laenge, osm_typ, osm_id, zelle_lat, zelle_lon, tags, form"
             indizes = [z[0] for z in db.execute("SELECT sql FROM sqlite_schema WHERE type = 'index' AND tbl_name = 'merkmale' "
                                                 "AND sql IS NOT NULL")]
-            db.execute(sql.replace("CREATE TABLE \"merkmale\"", "CREATE TABLE merkmale_sortiert", 1)
-                       .replace("CREATE TABLE merkmale", "CREATE TABLE merkmale_sortiert", 1))
+            # nach der Umbenennung im Erzeuger steht der Name in Anführungszeichen („CREATE TABLE "merkmale"“)
+            db.execute(re.sub(r'^CREATE TABLE\s+"?merkmale"?', "CREATE TABLE merkmale_sortiert", sql, count=1))
             db.execute(f"INSERT INTO merkmale_sortiert ({spalten}) SELECT {spalten} FROM merkmale "
                        "ORDER BY typ, zelle_lat, zelle_lon, id")
             db.execute("DROP TABLE merkmale")
@@ -234,7 +236,9 @@ def main():
     ziel, dateien = Path(sys.argv[1]), [Path(p) for p in sys.argv[2:]]
     beginn = time.time()
     vorher = ziel.stat().st_size
-    db = sqlite3.connect(ziel)
+    arbeit = ziel.with_suffix(".bahnhof.tmp")  # auf einer Kopie: ein Abbruch lässt die Datei, wie sie war
+    shutil.copyfile(ziel, arbeit)
+    db = sqlite3.connect(arbeit)
     db.execute("PRAGMA journal_mode=OFF")
     db.execute("PRAGMA synchronous=OFF")
     ergaenzung = Ergaenzung(db)
@@ -244,6 +248,7 @@ def main():
     ergaenzung.schreiben()
     db.execute("VACUUM")
     db.close()
+    arbeit.replace(ziel)
     print(f"  {len(ergaenzung.geaendert):,} Zeilen ergänzt, {len(ergaenzung.neu):,} neu "
           f"({', '.join(f'{t} {sum(1 for k in ergaenzung.neu if k[2] == t):,}' for t in NEUE_ARTEN + ('highway=steps',))})")
     for typ, z in ergaenzung.zahlen.items():

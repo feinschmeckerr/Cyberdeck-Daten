@@ -6,7 +6,6 @@ Größen vorher/nachher (roh und gzip) und Gegenprobe der Kacheln (Objekte, IDs,
 
 import collections
 import gzip
-import json
 import sqlite3
 import sys
 from pathlib import Path

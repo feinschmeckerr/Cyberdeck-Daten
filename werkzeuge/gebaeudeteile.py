@@ -19,6 +19,7 @@ Quelle: OpenStreetMap (ODbL).
 import gzip
 import json
 import re
+import shutil
 import sqlite3
 import struct
 import sys
@@ -330,7 +331,10 @@ def main():
         print(f"lese {datei.name} …", flush=True)
         lesen(datei, teile)
     print(f"  {len(teile):,} Gebäudeteile mit neuen Angaben ({time.time() - beginn:.0f} s)", flush=True)
-    zahlen = ergaenzen(ziel, teile)
+    arbeit = ziel.with_suffix(".teile.tmp")  # auf einer Kopie: ein Abbruch lässt die Datei, wie sie war
+    shutil.copyfile(ziel, arbeit)
+    zahlen = ergaenzen(arbeit, teile)
+    arbeit.replace(ziel)
     print(f"  {zahlen['objekte']:,} Objekte in {zahlen['kacheln']:,} Kacheln ergänzt (Zoom 14 und 15); Teile mit bp "
           f"{zahlen['teile_mit_bp']:,}, mit ml/xl {zahlen['teile_mit_ebene']:,}, mit ly {zahlen['teile_mit_layer']:,}")
     print(f"fertig in {time.time() - beginn:.0f} s: {vorher / 1e6:.1f} MB → {ziel.stat().st_size / 1e6:.1f} MB")
