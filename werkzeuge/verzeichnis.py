@@ -47,7 +47,8 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     ordner, tag = Path(sys.argv[1]), sys.argv[2]
-    laender = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(ordner.glob("*.json"))]
+    # pakete.json selbst nie mitlesen (release.sh leitet die Ausgabe früher in denselben Ordner – leere Datei)
+    laender = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(ordner.glob("*.json")) if p.name != "pakete.json"]
     json.dump({"version": 1, "tag": tag, "erzeugt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                "basis": f"https://github.com/feinschmeckerr/Cyberdeck-Daten/releases/download/{tag}/",
                "lizenz": QUELLEN, "arten": ARTEN, "laender": laender}, sys.stdout, ensure_ascii=False, indent=1)

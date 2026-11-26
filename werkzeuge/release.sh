@@ -182,7 +182,9 @@ if [ "$TROCKEN" = 1 ]; then
   echo "→ $PY $WERKZEUGE/verzeichnis.py $MANIFESTE $TAG > $MANIFESTE/pakete.json"
   FEHLT=""
 else
-  "$PY" "$WERKZEUGE/verzeichnis.py" "$MANIFESTE" "$TAG" > "$MANIFESTE/pakete.json"
+  # erst daneben schreiben, dann verschieben: sonst läge eine leere pakete.json unter den Manifesten, die es liest
+  "$PY" "$WERKZEUGE/verzeichnis.py" "$MANIFESTE" "$TAG" > "$MANIFESTE.pakete.json"
+  mv "$MANIFESTE.pakete.json" "$MANIFESTE/pakete.json"
   FEHLT=$("$PY" - "$MANIFESTE/pakete.json" $ALLE $PFLICHT_ZUSATZ <<'EOF'
 import json, sys
 d = json.load(open(sys.argv[1]))
